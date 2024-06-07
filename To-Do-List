@@ -1,0 +1,93 @@
+from tkinter import *
+from tkinter import messagebox
+import sqlite3 as sql
+
+class ToDoApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("To-Do List")
+        self.root.geometry("665x400+550+250")
+        self.root.resizable(0, 0)
+        self.root.configure(bg="#B5E5CF")
+        
+        # Setup database connection and create table
+        self.conn = sql.connect('listOfTasks.db')
+        self.cursor = self.conn.cursor()
+        self.cursor.execute('CREATE TABLE IF NOT EXISTS tasks (title TEXT)')
+        
+        self.tasks = []
+        self.create_widgets()
+        self.retrieve_tasks()
+        self.update_listbox()
+    
+    def create_widgets(self):
+        """Create and place widgets in the GUI."""
+        functions_frame = Frame(self.root, bg="#8EE5EE")
+        functions_frame.pack(side="top", expand=True, fill="both")
+
+        Label(functions_frame, text="TO-DO-LIST \n Enter the Task Title:", font=("arial", 14, "bold"), bg="#8EE5EE", fg="#FF6103").place(x=20, y=30)
+
+        self.task_field = Entry(functions_frame, font=("Arial", 14), width=42, bg="white", fg="black")
+        self.task_field.place(x=180, y=30)
+
+        Button(functions_frame, text="Add", width=15, bg='#D4AC0D', font=("arial", 14, "bold"), command=self.add_task).place(x=18, y=80)
+        Button(functions_frame, text="Remove", width=15, bg='#D4AC0D', font=("arial", 14, "bold"), command=self.delete_task).place(x=240, y=80)
+        Button(functions_frame, text="Delete All", width=15, bg='#D4AC0D', font=("arial", 14, "bold"), command=self.delete_all_tasks).place(x=460, y=80)
+        Button(functions_frame, text="Exit / Close", width=52, bg='#D4AC0D', font=("arial", 14, "bold"), command=self.close).place(x=17, y=330)
+
+        self.task_listbox = Listbox(functions_frame, width=70, height=9, font="bold", selectmode='SINGLE', bg="WHITE", fg="BLACK", selectbackground="#FF8C00", selectforeground="BLACK")
+        self.task_listbox.place(x=17, y=140)
+
+    def add_task(self):
+        """Adds a task to the task list and database."""
+        task = self.task_field.get()
+        if not task:
+            messagebox.showinfo('Error', 'Field is Empty.')
+        else:
+            self.tasks.append(task)
+            with self.conn:
+                self.cursor.execute('INSERT INTO tasks (title) VALUES (?)', (task,))
+            self.update_listbox()
+            self.task_field.delete(0, 'end')
+
+    def update_listbox(self):
+        """Updates the task listbox with current tasks."""
+        self.task_listbox.delete(0, 'end')
+        for task in self.tasks:
+            self.task_listbox.insert('end', task)
+
+    def delete_task(self):
+        """Deletes the selected task from the list and database."""
+        try:
+            task = self.task_listbox.get(self.task_listbox.curselection())
+            self.tasks.remove(task)
+            with self.conn:
+                self.cursor.execute('DELETE FROM tasks WHERE title = ?', (task,))
+            self.update_listbox()
+        except IndexError:
+            messagebox.showinfo('Error', 'No Task Selected. Cannot Delete.')
+
+    def delete_all_tasks(self):
+        """Deletes all tasks after user confirmation."""
+        if messagebox.askyesno('Delete All', 'Are you sure?'):
+            self.tasks.clear()
+            with self.conn:
+                self.cursor.execute('DELETE FROM tasks')
+            self.update_listbox()
+
+    def close(self):
+        """Commits changes, closes the database connection, and exits the application."""
+        self.conn.commit()
+        self.conn.close()
+        self.root.destroy()
+
+    def retrieve_tasks(self):
+        """Retrieves tasks from the database and updates the task list."""
+        self.tasks.clear()
+        for row in self.cursor.execute('SELECT title FROM tasks'):
+            self.tasks.append(row[0])
+
+if __name__ == "__main__":
+    guiWindow = Tk()
+    app = ToDoApp(guiWindow)
+    guiWindow.mainloop()
